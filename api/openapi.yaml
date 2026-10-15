@@ -1,0 +1,12 @@
+openapi: 3.0.3
+info:
+  title: tf-music API
+  version: 0.1.0
+  description: FishMatrix 音乐服务：歌单与播放记录接口契约（与实现同仓演进）
+paths:
+  /api/v1/music/health:
+    get:
+      summary: 服务健康检查
+      responses:
+        "200":
+          description: 服务正常
