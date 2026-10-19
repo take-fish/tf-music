@@ -1,8 +1,11 @@
 openapi: 3.0.3
 info:
   title: tf-music API
-  version: 0.1.0
-  description: FishMatrix 音乐服务：歌单与播放记录接口契约（与实现同仓演进）
+  version: 0.2.0
+  description: |
+    FishMatrix 音乐服务（骨架）：固定构建流水线歌单与进程内播放记录。
+    本地音频由浏览器 `<audio>` 播放，不上传；接口仅记录开始/暂停/恢复/完成/定位动作。
+
 paths:
   /api/v1/music/health:
     get:
@@ -10,3 +13,85 @@ paths:
       responses:
         "200":
           description: 服务正常
+
+  /api/v1/music/playlists:
+    get:
+      summary: 歌单（构建流水线）列表
+      responses:
+        "200":
+          description: '{ "playlists": PlaylistSummary[] }'
+
+  /api/v1/music/playlists/{playlistId}:
+    get:
+      summary: 歌单详情与构建任务（曲目）
+      parameters:
+        - in: path
+          name: playlistId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: PlaylistDetail
+        "404":
+          description: 流水线不存在
+
+  /api/v1/music/playlists/{playlistId}/records:
+    post:
+      summary: 记录播放/构建动作
+      parameters:
+        - in: path
+          name: playlistId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordRequest'
+      responses:
+        "202":
+          description: '{ "recordId": number, "ts": number }'
+        "400":
+          description: 任务、用户或动作非法
+
+  /api/v1/music/records:
+    get:
+      summary: 最近播放记录
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: '{ "records": PlaybackRecord[] }'
+
+components:
+  schemas:
+    Track:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        artist: { type: string }
+        durationSec: { type: integer }
+        stage: { type: string, enum: [prepare, compile, publish] }
+        lyrics: { type: array, items: { type: string } }
+    RecordRequest:
+      type: object
+      required: [trackId, userId, action, positionSec]
+      properties:
+        trackId: { type: string }
+        userId: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
+        action: { type: string, enum: [start, pause, resume, complete, seek] }
+        positionSec: { type: number, minimum: 0 }
+    PlaybackRecord:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        playlistId: { type: string }
+        trackId: { type: string }
+        userId: { type: string }
+        action: { type: string }
+        positionSec: { type: number }
+        ts: { type: integer, format: int64 }
