@@ -1,5 +1,7 @@
 package com.fishmatrix.music.controller;
 
+import com.fishmatrix.common.autoconfigure.FishCommonProperties;
+import com.fishmatrix.common.error.GlobalExceptionHandler;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -19,7 +21,7 @@ class MusicControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(new MusicController(new MusicCatalogService()))
-                .setControllerAdvice(new ApiExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler(new FishCommonProperties()))
                 .build();
     }
 
