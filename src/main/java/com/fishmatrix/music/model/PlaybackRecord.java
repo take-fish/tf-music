@@ -2,10 +2,9 @@ package com.fishmatrix.music.model;
 
 public record PlaybackRecord(
         long id,
-        String playlistId,
-        String trackId,
-        String userId,
+        long trackId,
+        String trackTitle,
         String action,
-        double positionSec,
+        int positionSec,
         long ts) {
 }
