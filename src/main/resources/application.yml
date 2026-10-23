@@ -33,6 +33,14 @@ spring:
       host: ${REDIS_HOST:10.28.13.214}
       port: ${REDIS_PORT:6379}
       database: ${REDIS_DATABASE:0}
+  sql:
+    init:
+      mode: ${SQL_INIT_MODE:never}
+      encoding: UTF-8
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 51MB
 
 server:
   port: 8105
@@ -42,6 +50,8 @@ app:
   # 运行环境标识：统一 JSON 日志的 env 字段来源；生产/测试栈分别注入 production/test
   environment: ${APP_ENV:production}
   version: ${APP_VERSION:dev}
+  music:
+    max-upload-bytes: ${MUSIC_MAX_UPLOAD_BYTES:52428800}
 
 management:
   tracing:
@@ -63,3 +73,18 @@ fm:
     error:
       service-unavailable-code: MUSIC_UNAVAILABLE
       service-unavailable-message: 音乐服务暂不可用
+  # 统一鉴权：身份由网关签名头注入；直连调试可用 Bearer 回退到用户中台。
+  auth:
+    enabled: ${FM_AUTH_ENABLED:true}
+    user-service-url: ${TF_USER_URL:http://127.0.0.1:8101}
+    identity-secret: ${FM_IDENTITY_SECRET:}
+    allow-bearer-fallback: ${FM_AUTH_BEARER_FALLBACK:true}
+    cache-ttl: ${FM_AUTH_CACHE_TTL:30s}
+    public-paths:
+      - /api/v1/music/health
+      - /api/v1/music/meta
+  # 音频原文落本地卷（Docker 命名卷），权限只由数据库记录决定。
+  storage:
+    enabled: ${FM_STORAGE_ENABLED:true}
+    base-dir: ${FM_STORAGE_BASE_DIR:./data/files}
+    max-file-bytes: ${FM_STORAGE_MAX_BYTES:52428800}

@@ -1,97 +1,499 @@
 openapi: 3.0.3
 info:
   title: tf-music API
-  version: 0.2.0
+  version: 0.3.0
   description: |
-    FishMatrix 音乐服务（骨架）：固定构建流水线歌单与进程内播放记录。
-    本地音频由浏览器 `<audio>` 播放，不上传；接口仅记录开始/暂停/恢复/完成/定位动作。
+    FishMatrix 音乐服务：公共曲库、个人曲库、歌单、分类、访问申请、流式播放与播放记录。
+    身份统一由用户中台签发；除健康检查外全部接口需要登录，权限码来自用户中台。
+    私有曲目对非 owner 未获批时统一返回 404；分享链接只用于发现与发起申请，不代表授权。
+
+security:
+  - bearerAuth: []
 
 paths:
   /api/v1/music/health:
     get:
+      security: []
       summary: 服务健康检查
       responses:
-        "200":
-          description: 服务正常
+        "200": { description: 服务正常 }
 
-  /api/v1/music/playlists:
+  /api/v1/music/tracks:
     get:
-      summary: 歌单（构建流水线）列表
+      summary: 曲库列表
+      parameters:
+        - in: query
+          name: scope
+          schema: { type: string, enum: [public, private], default: public }
+          description: private 等价于“我的曲目”
+        - in: query
+          name: categoryId
+          schema: { type: integer, format: int64 }
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, default: 0, minimum: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
       responses:
         "200":
-          description: '{ "playlists": PlaylistSummary[] }'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrackPage' }
 
-  /api/v1/music/playlists/{playlistId}:
+  /api/v1/music/tracks/mine:
     get:
-      summary: 歌单详情与构建任务（曲目）
+      summary: 我的曲目（含私有）
+      responses:
+        "200": { description: '{ "tracks": TrackSummary[] }' }
+
+  /api/v1/music/tracks/shared:
+    get:
+      summary: 我有权访问的他人私有曲目
+      responses:
+        "200": { description: '{ "tracks": TrackSummary[] }' }
+
+  /api/v1/music/tracks/shared/{shareToken}:
+    get:
+      summary: 分享链接预览（不含音频流）
       parameters:
-        - in: path
-          name: playlistId
-          required: true
-          schema: { type: string }
+        - $ref: '#/components/parameters/ShareToken'
       responses:
         "200":
-          description: PlaylistDetail
-        "404":
-          description: 流水线不存在
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrackSummary' }
+        "404": { description: 分享链接无效 }
 
-  /api/v1/music/playlists/{playlistId}/records:
-    post:
-      summary: 记录播放/构建动作
+  /api/v1/music/tracks/{trackId}:
+    get:
+      summary: 曲目详情
       parameters:
-        - in: path
-          name: playlistId
-          required: true
-          schema: { type: string }
+        - $ref: '#/components/parameters/TrackId'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrackSummary' }
+        "404": { description: 曲目不存在或无权访问 }
+    patch:
+      summary: 修改曲目信息
+      description: owner 可改标题/歌手/专辑/时长/分类/状态；分类变更需要 music.category.manage。
+      parameters:
+        - $ref: '#/components/parameters/TrackId'
       requestBody:
-        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TrackUpdateRequest' }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrackSummary' }
+        "404": { description: 曲目不存在或无权修改 }
+    delete:
+      summary: 删除曲目（owner 或 music.content.manage.any）
+      parameters:
+        - $ref: '#/components/parameters/TrackId'
+      responses:
+        "204": { description: 已删除 }
+        "404": { description: 曲目不存在 }
+        "403": { description: 无权删除 }
+
+  /api/v1/music/tracks/import:
+    post:
+      summary: 导入音频（mp3/m4a/aac/ogg/wav/flac/webm，≤50 MiB）
+      description: |
+        公共库需要 music.public.upload；个人库需要 music.private.manage；
+        指定 categoryId 需要 music.category.manage。scope 默认 PRIVATE。
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                scope: { type: string, enum: [PUBLIC, PRIVATE], default: PRIVATE }
+                title: { type: string, maxLength: 255 }
+                artist: { type: string, maxLength: 128 }
+                album: { type: string, maxLength: 128 }
+                durationSec: { type: integer, minimum: 0 }
+                categoryId: { type: integer, format: int64 }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrackSummary' }
+        "400": { description: 格式不支持或文件无效 }
+        "403": { description: 缺少上传权限 }
+        "413": { description: 文件过大 }
+
+  /api/v1/music/tracks/{trackId}/share:
+    post:
+      summary: 生成私有曲目分享链接（仅 owner）
+      parameters:
+        - $ref: '#/components/parameters/TrackId'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShareLink' }
+        "404": { description: 曲目不存在或不是 owner }
+
+  /api/v1/music/tracks/{trackId}/access-requests:
+    post:
+      summary: 发起访问申请
+      parameters:
+        - $ref: '#/components/parameters/TrackId'
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccessRequestCreate' }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessRequestView' }
+        "404": { description: 曲目不存在 }
+        "429": { description: 被拒绝后 24 小时冷却期内重复申请 }
+
+  /api/v1/music/access-requests/mine:
+    get:
+      summary: 我发出的访问申请
+      responses:
+        "200": { description: '{ "requests": AccessRequestView[] }' }
+
+  /api/v1/music/access-requests/received:
+    get:
+      summary: 我收到的访问申请
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [PENDING, APPROVED, REJECTED, CANCELLED, REVOKED] }
+      responses:
+        "200": { description: '{ "requests": AccessRequestView[] }' }
+
+  /api/v1/music/access-requests/{requestId}/approve:
+    post:
+      summary: owner 同意申请
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        "200": { description: AccessRequestView（APPROVED） }
+  /api/v1/music/access-requests/{requestId}/reject:
+    post:
+      summary: owner 拒绝申请
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RecordRequest'
+              type: object
+              properties:
+                message: { type: string, maxLength: 500 }
+      responses:
+        "200": { description: AccessRequestView（REJECTED） }
+  /api/v1/music/access-requests/{requestId}/revoke:
+    post:
+      summary: owner 收回已授予的访问
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        "200": { description: AccessRequestView（REVOKED） }
+  /api/v1/music/access-requests/{requestId}/cancel:
+    post:
+      summary: 申请人撤销待处理申请
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        "200": { description: AccessRequestView（CANCELLED） }
+
+  /api/v1/music/tracks/{trackId}/stream:
+    get:
+      summary: 音频流（支持单段 Range）
+      description: |
+        无 Range 返回 200 与完整资源；带单个 `Range: bytes=start-end` 返回 206。
+        多段 Range 返回 416 RANGE_NOT_SATISFIABLE。
+      parameters:
+        - $ref: '#/components/parameters/TrackId'
+        - in: header
+          name: Range
+          schema: { type: string, example: 'bytes=0-1023' }
+      responses:
+        "200":
+          description: 完整音频
+          content:
+            audio/*:
+              schema: { type: string, format: binary }
+        "206":
+          description: 部分内容
+          content:
+            audio/*:
+              schema: { type: string, format: binary }
+        "404": { description: 曲目不存在或无权访问 }
+        "416": { description: Range 无效或多段 }
+
+  /api/v1/music/categories:
+    get:
+      summary: 分类列表
+      responses:
+        "200": { description: '{ "categories": Category[] }' }
+    post:
+      summary: 新建分类（music.category.manage）
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryRequest' }
+      responses:
+        "201": { description: Category }
+        "403": { description: 缺少 music.category.manage }
+
+  /api/v1/music/categories/{categoryId}:
+    put:
+      summary: 修改分类（music.category.manage）
+      parameters:
+        - in: path
+          name: categoryId
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryRequest' }
+      responses:
+        "200": { description: Category }
+    delete:
+      summary: 删除分类（music.category.manage）
+      parameters:
+        - in: path
+          name: categoryId
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { description: 已删除 }
+
+  /api/v1/music/playlists:
+    get:
+      summary: 我的歌单
+      responses:
+        "200": { description: '{ "playlists": Playlist[] }' }
+    post:
+      summary: 新建歌单（music.private.manage）
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlaylistRequest' }
+      responses:
+        "201": { description: Playlist }
+
+  /api/v1/music/playlists/{playlistId}:
+    get:
+      summary: 歌单详情
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+      responses:
+        "200": { description: PlaylistDetail }
+        "404": { description: 歌单不存在或不属于当前用户 }
+    put:
+      summary: 修改歌单
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlaylistRequest' }
+      responses:
+        "200": { description: Playlist }
+    delete:
+      summary: 删除歌单
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+      responses:
+        "204": { description: 已删除 }
+
+  /api/v1/music/playlists/{playlistId}/tracks/{trackId}:
+    post:
+      summary: 歌单加入曲目
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+        - $ref: '#/components/parameters/TrackId'
+      responses:
+        "204": { description: 已加入 }
+    delete:
+      summary: 歌单移除曲目
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+        - $ref: '#/components/parameters/TrackId'
+      responses:
+        "204": { description: 已移除 }
+
+  /api/v1/music/tracks/{trackId}/records:
+    post:
+      summary: 记录播放动作
+      parameters:
+        - $ref: '#/components/parameters/TrackId'
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecordRequest' }
       responses:
         "202":
           description: '{ "recordId": number, "ts": number }'
-        "400":
-          description: 任务、用户或动作非法
+        "400": { description: 动作非法 }
+        "404": { description: 曲目不存在或无权访问 }
 
   /api/v1/music/records:
     get:
-      summary: 最近播放记录
+      summary: 我的最近播放记录
       parameters:
         - in: query
           name: limit
           schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
       responses:
-        "200":
-          description: '{ "records": PlaybackRecord[] }'
+        "200": { description: '{ "records": PlaybackRecord[] }' }
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  parameters:
+    TrackId:
+      in: path
+      name: trackId
+      required: true
+      schema: { type: integer, format: int64 }
+    PlaylistId:
+      in: path
+      name: playlistId
+      required: true
+      schema: { type: integer, format: int64 }
+    ShareToken:
+      in: path
+      name: shareToken
+      required: true
+      schema: { type: string }
+    RequestId:
+      in: path
+      name: requestId
+      required: true
+      schema: { type: integer, format: int64 }
+
   schemas:
-    Track:
+    TrackSummary:
       type: object
       properties:
-        id: { type: string }
+        id: { type: integer, format: int64 }
         title: { type: string }
         artist: { type: string }
+        album: { type: string }
         durationSec: { type: integer }
-        stage: { type: string, enum: [prepare, compile, publish] }
-        lyrics: { type: array, items: { type: string } }
+        scope: { type: string, enum: [PUBLIC, PRIVATE] }
+        ownerId: { type: integer, format: int64, nullable: true }
+        ownerNickname: { type: string, nullable: true }
+        categoryId: { type: integer, format: int64, nullable: true }
+        categoryName: { type: string, nullable: true }
+        status: { type: string, enum: [VISIBLE, HIDDEN] }
+        contentType: { type: string }
+        fileSize: { type: integer, format: int64 }
+        mine: { type: boolean }
+        canEdit: { type: boolean }
+        canDelete: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    TrackPage:
+      type: object
+      properties:
+        tracks:
+          type: array
+          items: { $ref: '#/components/schemas/TrackSummary' }
+        total: { type: integer, format: int64 }
+        page: { type: integer }
+        size: { type: integer }
+    TrackUpdateRequest:
+      type: object
+      properties:
+        title: { type: string, maxLength: 255 }
+        artist: { type: string, maxLength: 128 }
+        album: { type: string, maxLength: 128 }
+        durationSec: { type: integer, minimum: 0 }
+        categoryId: { type: integer, format: int64, nullable: true }
+        status: { type: string, enum: [VISIBLE, HIDDEN] }
+    ShareLink:
+      type: object
+      properties:
+        shareToken: { type: string }
+    AccessRequestCreate:
+      type: object
+      properties:
+        shareToken: { type: string }
+        message: { type: string, maxLength: 500 }
+    AccessRequestView:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        trackId: { type: integer, format: int64 }
+        trackTitle: { type: string }
+        ownerId: { type: integer, format: int64 }
+        ownerNickname: { type: string }
+        requesterId: { type: integer, format: int64 }
+        requesterNickname: { type: string }
+        status: { type: string, enum: [PENDING, APPROVED, REJECTED, CANCELLED, REVOKED] }
+        message: { type: string, nullable: true }
+        decisionMessage: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        decidedAt: { type: string, format: date-time, nullable: true }
+    Category:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        sortOrder: { type: integer }
+    CategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 64 }
+        sortOrder: { type: integer }
+    Playlist:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        trackCount: { type: integer }
+        updatedAt: { type: string, format: date-time }
+    PlaylistDetail:
+      type: object
+      properties:
+        playlist: { $ref: '#/components/schemas/Playlist' }
+        tracks:
+          type: array
+          items: { $ref: '#/components/schemas/TrackSummary' }
+    PlaylistRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 64 }
+        description: { type: string, maxLength: 500 }
     RecordRequest:
       type: object
-      required: [trackId, userId, action, positionSec]
+      required: [action]
       properties:
-        trackId: { type: string }
-        userId: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
         action: { type: string, enum: [start, pause, resume, complete, seek] }
-        positionSec: { type: number, minimum: 0 }
+        positionSec: { type: integer, minimum: 0 }
     PlaybackRecord:
       type: object
       properties:
         id: { type: integer, format: int64 }
-        playlistId: { type: string }
-        trackId: { type: string }
-        userId: { type: string }
+        trackId: { type: integer, format: int64 }
+        trackTitle: { type: string }
         action: { type: string }
-        positionSec: { type: number }
+        positionSec: { type: integer }
         ts: { type: integer, format: int64 }
