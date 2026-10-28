@@ -6,6 +6,7 @@ import com.fishmatrix.music.model.CategoryRequest;
 import com.fishmatrix.music.service.MusicCategoryService;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,13 +20,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/music")
+@RequiredArgsConstructor
 public class MusicCategoryController {
 
     private final MusicCategoryService categoryService;
-
-    public MusicCategoryController(MusicCategoryService categoryService) {
-        this.categoryService = categoryService;
-    }
 
     @GetMapping("/categories")
     public Map<String, Object> list() {

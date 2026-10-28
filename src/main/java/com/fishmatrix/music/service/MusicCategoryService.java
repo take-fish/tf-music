@@ -6,17 +6,15 @@ import com.fishmatrix.music.repository.CategoryRepository;
 import com.fishmatrix.music.util.Validation;
 import java.time.Instant;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class MusicCategoryService {
 
     private final CategoryRepository repository;
-
-    public MusicCategoryService(CategoryRepository repository) {
-        this.repository = repository;
-    }
 
     public List<Category> list() {
         return repository.findAll();

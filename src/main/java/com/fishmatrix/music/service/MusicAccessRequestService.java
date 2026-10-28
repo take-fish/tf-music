@@ -12,22 +12,18 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class MusicAccessRequestService {
 
     private static final Duration REJECT_COOLDOWN = Duration.ofHours(24);
 
     private final AccessRequestRepository repository;
     private final TrackRepository trackRepository;
-
-    public MusicAccessRequestService(AccessRequestRepository repository,
-            TrackRepository trackRepository) {
-        this.repository = repository;
-        this.trackRepository = trackRepository;
-    }
 
     @Transactional
     public AccessRequestView request(long trackId, AccessRequestCreate create,
