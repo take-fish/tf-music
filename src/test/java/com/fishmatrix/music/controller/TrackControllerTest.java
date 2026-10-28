@@ -15,7 +15,9 @@ import com.fishmatrix.common.auth.CurrentUser;
 import com.fishmatrix.common.auth.UserContext;
 import com.fishmatrix.common.autoconfigure.FishCommonProperties;
 import com.fishmatrix.common.error.GlobalExceptionHandler;
-import com.fishmatrix.music.model.NotFoundException;
+import com.fishmatrix.music.domain.TrackScope;
+import com.fishmatrix.music.domain.TrackStatus;
+import com.fishmatrix.music.error.NotFoundException;
 import com.fishmatrix.music.model.TrackPage;
 import com.fishmatrix.music.model.TrackStream;
 import com.fishmatrix.music.model.TrackSummary;
@@ -61,8 +63,8 @@ class TrackControllerTest {
     }
 
     private static TrackSummary summary(long id, String title) {
-        return new TrackSummary(id, title, "歌手", "专辑", 180, "PUBLIC", null, "", null, null,
-                "VISIBLE", "audio/mpeg", 10, false, false, false,
+        return new TrackSummary(id, title, "歌手", "专辑", 180, TrackScope.PUBLIC, null, "", null, null,
+                TrackStatus.VISIBLE, "audio/mpeg", 10, false, false, false,
                 Instant.parse("2026-10-20T09:00:00Z"), Instant.parse("2026-10-20T09:00:00Z"));
     }
 

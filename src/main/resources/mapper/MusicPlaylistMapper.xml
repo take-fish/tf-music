@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.fishmatrix.music.mapper.MusicPlaylistMapper">
+
+  <!-- track_count 对应实体的 @TableField(exist = false) 字段 -->
+  <sql id="PLAYLIST_COLUMNS">
+    p.id, p.owner_id, p.name, p.description, p.created_at, p.updated_at,
+    (SELECT COUNT(*) FROM music_playlist_track i WHERE i.playlist_id = p.id) AS track_count
+  </sql>
+
+  <select id="selectByOwner" resultType="com.fishmatrix.music.entity.MusicPlaylist">
+    SELECT <include refid="PLAYLIST_COLUMNS"/>
+    FROM music_playlist p
+    WHERE p.owner_id = #{ownerId}
+    ORDER BY p.updated_at DESC, p.id DESC
+  </select>
+
+  <select id="selectWithCount" resultType="com.fishmatrix.music.entity.MusicPlaylist">
+    SELECT <include refid="PLAYLIST_COLUMNS"/>
+    FROM music_playlist p
+    WHERE p.id = #{id}
+  </select>
+
+</mapper>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.fishmatrix.music.mapper.MusicPlaybackMapper">
+
+  <!-- track_title 对应实体的 @TableField(exist = false) 字段 -->
+  <select id="selectRecentByUser" resultType="com.fishmatrix.music.entity.MusicPlayback">
+    SELECT p.id, p.user_id, p.track_id, t.title AS track_title, p.action,
+           p.position_sec, p.created_at
+    FROM music_playback p
+    LEFT JOIN music_track t ON t.id = p.track_id
+    WHERE p.user_id = #{userId}
+    ORDER BY p.id DESC
+    LIMIT #{limit}
+  </select>
+
+  <delete id="deleteByTrack">
+    DELETE FROM music_playback WHERE track_id = #{trackId}
+  </delete>
+
+</mapper>

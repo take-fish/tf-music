@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.fishmatrix.music.mapper.MusicAccessRequestMapper">
+
+  <!-- track_title / owner_nickname 对应实体的 @TableField(exist = false) 字段，
+       owner_nickname 取曲目所有者的昵称快照（拼接时生成，不随改名变化）。 -->
+  <sql id="REQUEST_COLUMNS">
+    r.id, r.track_id, t.title AS track_title, r.owner_id, t.owner_nickname,
+    r.requester_id, r.requester_nickname, r.status, r.message, r.decision_message,
+    r.created_at, r.decided_at, r.updated_at
+  </sql>
+
+  <sql id="REQUEST_FROM">
+    FROM music_access_request r
+    JOIN music_track t ON t.id = r.track_id
+  </sql>
+
+  <select id="selectViewById" resultType="com.fishmatrix.music.entity.MusicAccessRequest">
+    SELECT <include refid="REQUEST_COLUMNS"/>
+    <include refid="REQUEST_FROM"/>
+    WHERE r.id = #{id}
+  </select>
+
+  <select id="selectByTrackAndRequester" resultType="com.fishmatrix.music.entity.MusicAccessRequest">
+    SELECT <include refid="REQUEST_COLUMNS"/>
+    <include refid="REQUEST_FROM"/>
+    WHERE r.track_id = #{trackId}
+      AND r.requester_id = #{requesterId}
+  </select>
+
+  <select id="selectByRequester" resultType="com.fishmatrix.music.entity.MusicAccessRequest">
+    SELECT <include refid="REQUEST_COLUMNS"/>
+    <include refid="REQUEST_FROM"/>
+    WHERE r.requester_id = #{requesterId}
+    ORDER BY r.updated_at DESC, r.id DESC
+  </select>
+
+  <select id="selectByOwner" resultType="com.fishmatrix.music.entity.MusicAccessRequest">
+    SELECT <include refid="REQUEST_COLUMNS"/>
+    <include refid="REQUEST_FROM"/>
+    WHERE r.owner_id = #{ownerId}
+    <if test="status != null">
+      AND r.status = #{status}
+    </if>
+    ORDER BY r.updated_at DESC, r.id DESC
+  </select>
+
+  <select id="countApproved" resultType="long">
+    SELECT COUNT(*)
+    FROM music_access_request
+    WHERE track_id = #{trackId}
+      AND requester_id = #{requesterId}
+      AND status = 'APPROVED'
+  </select>
+
+  <delete id="deleteByTrack">
+    DELETE FROM music_access_request WHERE track_id = #{trackId}
+  </delete>
+
+</mapper>
