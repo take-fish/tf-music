@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.fishmatrix.music.mapper.MusicTrackMapper">
+
+  <!-- 曲目列表/详情统一带出分类名；category_name 对应实体的 @TableField(exist = false) 字段 -->
+  <sql id="TRACK_COLUMNS">
+    t.id, t.title, t.artist, t.album, t.duration_sec, t.scope, t.owner_id,
+    t.owner_nickname, t.category_id, c.name AS category_name, t.status,
+    t.share_token, t.storage_key, t.source_filename, t.content_type,
+    t.file_size, t.sha256, t.created_at, t.updated_at
+  </sql>
+
+  <sql id="TRACK_FROM">
+    FROM music_track t
+    LEFT JOIN music_category c ON c.id = t.category_id
+  </sql>
+
+  <sql id="PUBLIC_FILTER">
+    AND (LOWER(t.title) LIKE CONCAT('%', LOWER(TRIM(#{keyword})), '%')
+      OR LOWER(t.artist) LIKE CONCAT('%', LOWER(TRIM(#{keyword})), '%')
+      OR LOWER(t.album) LIKE CONCAT('%', LOWER(TRIM(#{keyword})), '%'))
+  </sql>
+
+  <select id="selectPublicPage" resultType="com.fishmatrix.music.entity.MusicTrack">
+    SELECT <include refid="TRACK_COLUMNS"/>
+    <include refid="TRACK_FROM"/>
+    WHERE t.scope = 'PUBLIC'
+      AND t.status = 'VISIBLE'
+    <if test="categoryId != null">
+      AND t.category_id = #{categoryId}
+    </if>
+    <if test="keyword != null and keyword.trim() != ''">
+      <include refid="PUBLIC_FILTER"/>
+    </if>
+    ORDER BY t.updated_at DESC, t.id DESC
+  </select>
+
+  <select id="selectViewById" resultType="com.fishmatrix.music.entity.MusicTrack">
+    SELECT <include refid="TRACK_COLUMNS"/>
+    <include refid="TRACK_FROM"/>
+    WHERE t.id = #{id}
+  </select>
+
+  <select id="selectOwned" resultType="com.fishmatrix.music.entity.MusicTrack">
+    SELECT <include refid="TRACK_COLUMNS"/>
+    <include refid="TRACK_FROM"/>
+    WHERE t.scope = 'PRIVATE'
+      AND t.owner_id = #{ownerId}
+    ORDER BY t.updated_at DESC, t.id DESC
+  </select>
+
+  <!-- 已批准访问的私有曲目；不含本人拥有的曲目 -->
+  <select id="selectShared" resultType="com.fishmatrix.music.entity.MusicTrack">
+    SELECT <include refid="TRACK_COLUMNS"/>
+    <include refid="TRACK_FROM"/>
+    JOIN music_access_request r ON r.track_id = t.id
+    WHERE t.scope = 'PRIVATE'
+      AND r.requester_id = #{viewerId}
+      AND r.status = 'APPROVED'
+      AND t.owner_id &lt;&gt; #{viewerId}
+    ORDER BY t.updated_at DESC, t.id DESC
+  </select>
+
+  <select id="selectByIds" resultType="com.fishmatrix.music.entity.MusicTrack">
+    SELECT <include refid="TRACK_COLUMNS"/>
+    <include refid="TRACK_FROM"/>
+    WHERE t.id IN
+    <foreach collection="ids" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+  </select>
+
+  <select id="selectByShareToken" resultType="com.fishmatrix.music.entity.MusicTrack">
+    SELECT <include refid="TRACK_COLUMNS"/>
+    <include refid="TRACK_FROM"/>
+    WHERE t.share_token = #{shareToken}
+  </select>
+
+</mapper>

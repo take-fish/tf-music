@@ -1,5 +1,7 @@
 package com.fishmatrix.music.model;
 
+import com.fishmatrix.music.domain.TrackScope;
+import com.fishmatrix.music.domain.TrackStatus;
 import java.time.Instant;
 
 /**
@@ -12,12 +14,12 @@ public record TrackSummary(
         String artist,
         String album,
         int durationSec,
-        String scope,
+        TrackScope scope,
         Long ownerId,
         String ownerNickname,
         Long categoryId,
         String categoryName,
-        String status,
+        TrackStatus status,
         String contentType,
         long fileSize,
         boolean mine,
