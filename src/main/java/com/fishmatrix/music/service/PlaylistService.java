@@ -13,22 +13,17 @@ import com.fishmatrix.music.util.Validation;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class PlaylistService {
 
     private final PlaylistRepository playlistRepository;
     private final TrackRepository trackRepository;
     private final MusicLibraryService libraryService;
-
-    public PlaylistService(PlaylistRepository playlistRepository, TrackRepository trackRepository,
-            MusicLibraryService libraryService) {
-        this.playlistRepository = playlistRepository;
-        this.trackRepository = trackRepository;
-        this.libraryService = libraryService;
-    }
 
     public List<Playlist> list(CurrentUser viewer) {
         return playlistRepository.findByOwner(viewer.id());

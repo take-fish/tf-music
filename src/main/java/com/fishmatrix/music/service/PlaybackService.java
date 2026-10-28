@@ -7,9 +7,11 @@ import com.fishmatrix.music.repository.PlaybackRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class PlaybackService {
 
     private static final int MAX_RECORDS = 100;
@@ -18,11 +20,6 @@ public class PlaybackService {
 
     private final PlaybackRepository repository;
     private final MusicLibraryService libraryService;
-
-    public PlaybackService(PlaybackRepository repository, MusicLibraryService libraryService) {
-        this.repository = repository;
-        this.libraryService = libraryService;
-    }
 
     public PlaybackRecord record(long trackId, RecordRequest request, CurrentUser viewer) {
         if (request == null) {

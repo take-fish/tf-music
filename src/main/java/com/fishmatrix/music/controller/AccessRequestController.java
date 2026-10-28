@@ -6,6 +6,7 @@ import com.fishmatrix.music.model.AccessRequestView;
 import com.fishmatrix.music.service.MusicAccessRequestService;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,13 +19,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/music")
+@RequiredArgsConstructor
 public class AccessRequestController {
 
     private final MusicAccessRequestService service;
-
-    public AccessRequestController(MusicAccessRequestService service) {
-        this.service = service;
-    }
 
     @PostMapping("/tracks/{trackId}/access-requests")
     @ResponseStatus(HttpStatus.CREATED)

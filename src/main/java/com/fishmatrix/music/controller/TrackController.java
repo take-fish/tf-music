@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourceRegion;
 import org.springframework.http.ContentDisposition;
@@ -36,13 +37,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/music")
+@RequiredArgsConstructor
 public class TrackController {
 
     private final MusicLibraryService libraryService;
-
-    public TrackController(MusicLibraryService libraryService) {
-        this.libraryService = libraryService;
-    }
 
     @GetMapping("/tracks")
     public TrackPage tracks(
