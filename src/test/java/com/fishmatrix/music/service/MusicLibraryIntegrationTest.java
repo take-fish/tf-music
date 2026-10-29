@@ -5,15 +5,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fishmatrix.common.auth.CurrentUser;
 import com.fishmatrix.common.error.ApiException;
+import com.fishmatrix.music.domain.AccessRequestStatus;
+import com.fishmatrix.music.domain.TrackScope;
+import com.fishmatrix.music.error.NotFoundException;
 import com.fishmatrix.music.model.AccessRequestCreate;
 import com.fishmatrix.music.model.AccessRequestView;
 import com.fishmatrix.music.model.Category;
 import com.fishmatrix.music.model.CategoryRequest;
-import com.fishmatrix.music.model.NotFoundException;
 import com.fishmatrix.music.model.Playlist;
 import com.fishmatrix.music.model.PlaylistDetail;
 import com.fishmatrix.music.model.PlaylistRequest;
 import com.fishmatrix.music.model.RecordRequest;
+import com.fishmatrix.music.model.TrackPage;
 import com.fishmatrix.music.model.TrackStream;
 import com.fishmatrix.music.model.TrackSummary;
 import com.fishmatrix.music.model.TrackUpdateRequest;
@@ -60,7 +63,7 @@ class MusicLibraryIntegrationTest {
                 .isEqualTo(403);
 
         TrackSummary track = importTrack("public", owner);
-        assertThat(track.scope()).isEqualTo("PUBLIC");
+        assertThat(track.scope()).isEqualTo(TrackScope.PUBLIC);
         assertThat(track.ownerId()).isEqualTo(owner.id());
         assertThat(track.contentType()).isEqualTo("audio/mpeg");
         assertThat(track.mine()).isTrue();
@@ -72,7 +75,7 @@ class MusicLibraryIntegrationTest {
                 "file", "book.txt", "text/plain", "not audio".getBytes());
         assertThatThrownBy(() -> libraryService.importTrack("private", "标题", "", "",
                 0, null, file, owner))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ApiException.class)
                 .hasMessageContaining("音频");
     }
 
@@ -93,6 +96,26 @@ class MusicLibraryIntegrationTest {
     }
 
     @Test
+    void publicLibraryPagesAndFiltersByKeyword() {
+        importTrack("public", owner);
+        importTrack("public", owner);
+        importTrack("public", owner);
+
+        TrackPage firstPage = libraryService.listPublic(null, null, 0, 2, stranger);
+        assertThat(firstPage.total()).isEqualTo(3);
+        assertThat(firstPage.tracks()).hasSize(2);
+        assertThat(firstPage.page()).isZero();
+        assertThat(firstPage.size()).isEqualTo(2);
+
+        TrackPage secondPage = libraryService.listPublic(null, null, 1, 2, stranger);
+        assertThat(secondPage.tracks()).hasSize(1);
+
+        assertThat(libraryService.listPublic(null, "测试", 0, 20, stranger).total()).isEqualTo(3);
+        assertThat(libraryService.listPublic(null, "不存在的关键词", 0, 20, stranger).total())
+                .isZero();
+    }
+
+    @Test
     void shareTokenOnlyAllowsApplyingUntilOwnerApproves() {
         TrackSummary track = importTrack("private", owner);
         String token = libraryService.share(track.id(), owner).shareToken();
@@ -107,7 +130,7 @@ class MusicLibraryIntegrationTest {
 
         AccessRequestView request = accessRequestService.request(
                 track.id(), new AccessRequestCreate(token, "想听"), stranger);
-        assertThat(request.status()).isEqualTo("PENDING");
+        assertThat(request.status()).isEqualTo(AccessRequestStatus.PENDING);
         assertThatThrownBy(() -> libraryService.stream(track.id(), stranger))
                 .isInstanceOf(NotFoundException.class);
 

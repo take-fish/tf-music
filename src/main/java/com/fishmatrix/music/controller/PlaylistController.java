@@ -8,6 +8,7 @@ import com.fishmatrix.music.model.PlaylistRequest;
 import com.fishmatrix.music.service.PlaylistService;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,13 +23,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/music")
 @RequirePermission("music.private.manage")
+@RequiredArgsConstructor
 public class PlaylistController {
 
     private final PlaylistService playlistService;
-
-    public PlaylistController(PlaylistService playlistService) {
-        this.playlistService = playlistService;
-    }
 
     @GetMapping("/playlists")
     public Map<String, Object> list() {
